@@ -555,6 +555,44 @@ body.combat-mode .shockwave {
     /* "ch" 是以 '0' 的寬度為單位的，1.7ch 大約是兩個數字緊貼的寬度 */
     width: 1.65ch; 
 }
+/* --- 1. 俄語解碼與打字機特效 --- */
+.typing-cursor::after {
+    content: '▋';
+    display: inline-block;
+    color: var(--primary);
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* --- 2. 點擊爆炸特效 (Bomb Girl Effect) --- */
+.explosion-particle {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #ff00de 40%, transparent 100%);
+    transform: translate(-50%, -50%);
+    animation: explode 0.6s ease-out forwards;
+    z-index: 9999;
+}
+
+@keyframes explode {
+    0% { width: 10px; height: 10px; opacity: 1; }
+    100% { width: 150px; height: 150px; opacity: 0; }
+}
+
+/* 讓語錄文字有點擊手感 */
+#reze-status-text {
+    cursor: pointer;
+    transition: text-shadow 0.3s;
+}
+#reze-status-text:hover {
+    text-shadow: 0 0 10px var(--primary);
+}
     </style>
 </head>
 <body>
