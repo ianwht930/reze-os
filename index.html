@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+ <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reze OS V42 - Bomb Devil</title>
+    
+    <link rel="icon" type="image/gif" href="reze.gif">
+    
+    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=999">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100;300;400;500;700&family=Shippori+Mincho:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 1. 核心配色 (Reze Palette) --- */
+        :root {
+            --primary: #d4a3ff;
+            --accent: #5ef7c9;
+            --danger: #ff2a2a;
+            --dark: #080808;
+            --text-main: #ffffff;
+            --glow-color: rgba(212, 163, 255, 0.4);
+            --netflix-red: #E50914;
+            --spotify-green: #1DB954;
+        }
+        
+        body.combat-mode {
+            --primary: #ff2a2a;
+            --accent: #ffcc00;
+            --glow-color: rgba(255, 42, 42, 0.8);
+        }
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Noto Sans JP', sans-serif;
+            height: 100vh; overflow: hidden;
+            background-color: var(--dark);
+            color: var(--text-main);
+            user-select: none;
+            cursor: crosshair;
+            transition: background 0.5s ease-in-out;
+            perspective: 1000px;
+        }
+
+        /* 螢幕震動特效 Class */
+        .shake-effect {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* 背景處理 */
+        #bg-video {
+            position: fixed; top: -5%; left: -5%; width: 110%; height: 110%;
+            z-index: -10; object-fit: cover;
+            filter: brightness(0.4) grayscale(0.4) contrast(1.1);
+            transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 1s;
+        }
+        body.combat-mode #bg-video { 
+            filter: brightness(0.3) grayscale(1) sepia(1) hue-rotate(-50deg) contrast(1.5); 
+        }
+
+        /* 網格與特效 */
+        .grid-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none; z-index: 1;
+        }
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 40%, #000 100%);
+            pointer-events: none; z-index: 2;
+        }
+        #fx-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+        }
+
+        /* 戰鬥模式瞄準介面 */
+        .combat-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 4;
+            opacity: 0; transition: 0.5s;
+            box-shadow: inset 0 0 100px rgba(255,0,0,0);
+        }
+        body.combat-mode .combat-overlay {
+            opacity: 1;
+            background: 
+                linear-gradient(to right, var(--danger) 2px, transparent 2px) 0 0,
+                linear-gradient(to bottom, var(--danger) 2px, transparent 2px) 0 0;
+            background-size: 100% 100%;
+            box-shadow: inset 0 0 50px rgba(255, 42, 42, 0.2);
+        }
+        /* 十字準心 */
+        .crosshair-lines {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 300px; height: 300px;
+            border: 1px solid rgba(255,0,0,0);
+            transition: 0.5s;
+        }
+        body.combat-mode .crosshair-lines {
+            border: 1px solid rgba(255, 42, 42, 0.3);
+            width: 80%; height: 80%;
+            animation: targetLock 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes targetLock {
+            0% { width: 100%; height: 100%; opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+            100% { width: 80%; height: 80%; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* --- 2. 介面元件 --- */
+        .glitch-hover {
+            position: relative; display: inline-block; transition: 0.3s;
+        }
+        .glitch-hover:hover {
+            text-shadow: 2px 0 var(--primary), -2px 0 var(--accent);
+            animation: glitch-skew 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+            color: #fff;
+        }
+        @keyframes glitch-skew {
+            0% { transform: skew(0deg); }
+            20% { transform: skew(-2deg); }
+            40% { transform: skew(2deg); }
+            60% { transform: skew(-1deg); }
+            80% { transform: skew(1deg); }
+            100% { transform: skew(0deg); }
+        }
+
+        /* HUD 佈局 */
+        .hud-container {
+            position: absolute; top: 10%; left: 8%; z-index: 10;
+        }
+
+        .greeting-jp {
+            font-family: 'Shippori Mincho', serif;
+            font-size: 32px; color: var(--text-main);
+            font-weight: 700; letter-spacing: 2px;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+        }
+        
+        .clock-huge {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 130px; font-weight: 700;
+            line-height: 0.8; color: #fff;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            margin-left: -5px;
+            transition: color 0.3s;
+            font-variant-numeric: tabular-nums;
+        }
+        .clock-huge:hover { color: var(--primary); }
+
+        .date-jp {
+            font-size: 16px; color: var(--accent);
+            letter-spacing: 4px; margin-top: 10px; margin-bottom: 20px;
+            font-weight: 500;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .date-jp::before { content: ''; width: 30px; height: 1px; background: var(--accent); }
+
+        .reze-status-box {
+            margin-bottom: 30px;
+            font-family: 'Shippori Mincho', serif;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px; letter-spacing: 2px;
+            min-height: 20px; display: flex; align-items: center;
+        }
+        .reze-status-box i { margin-right: 10px; font-size: 12px; color: var(--primary); }
+
+        /* 安全栓 (THE PIN) */
+        .pin-system {
+            display: inline-flex; align-items: center; gap: 20px;
+            padding: 15px 25px;
+            background: rgba(10,10,10,0.6);
+            border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(5px);
+            border-left: 3px solid var(--primary);
+            transition: 0.4s;
+        }
+        .pin-system:hover { 
+            border-color: var(--accent); 
+            border-left-color: var(--accent);
+            transform: translateX(10px);
+        }
+        body.combat-mode .pin-system { border-left-color: var(--danger); background: rgba(30,0,0,0.6); }
+
+        .choker-pin {
+            width: 44px; height: 44px;
+            border: 3px solid var(--primary);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+        .choker-pin::before {
+            content: ''; position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            width: 2px; height: 15px; background: rgba(255,255,255,0.3);
+        }
+        .choker-pin i { font-size: 18px; color: var(--primary); transition: 0.3s; }
+        .choker-pin:hover { transform: scale(1.1) rotate(15deg); box-shadow: 0 0 15px var(--primary); }
+        .choker-pin:active { transform: scale(0.9); }
+        body.combat-mode .choker-pin { 
+            border-color: var(--danger); 
+            transform: rotate(180deg);
+            box-shadow: 0 0 20px var(--danger);
+        }
+        body.combat-mode .choker-pin i { color: var(--danger); }
+
+        .status-group { display: flex; flex-direction: column; }
+        .status-label { font-size: 10px; color: #888; letter-spacing: 1px; }
+        .status-main { 
+            font-size: 20px; font-weight: 700; color: #fff; 
+            font-family: 'Shippori Mincho', serif; letter-spacing: 1px;
+        }
+
+        /* Google Search */
+        .search-box { margin-top: 30px; position: relative; width: 300px; }
+        .search-input {
+            width: 100%; background: transparent;
+            border: none; border-bottom: 1px solid rgba(255,255,255,0.3);
+            color: #fff; padding: 10px 0; font-size: 16px;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: 0.3s;
+        }
+        .search-input:focus { outline: none; border-bottom-color: var(--primary); padding-left: 10px; }
+        .search-icon { 
+            position: absolute; right: 0; top: 10px; 
+            color: var(--primary); font-size: 14px; cursor: pointer; transition: 0.2s;
+        }
+        .search-icon:hover { color: #fff; transform: scale(1.2) rotate(90deg); }
+
+        /* --- 3. 應用程式矩陣 (App Matrix) --- */
+        .app-bar {
+            position: absolute; bottom: 8%; left: 8%;
+            display: flex; gap: 20px; z-index: 10;
+            align-items: flex-end;
+        }
+        
+        .app-icon {
+            width: 50px; height: 50px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 22px; color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer; text-decoration: none;
+            border-radius: 12px;
+            position: relative;
+            backdrop-filter: blur(4px);
+        }
+
+        .app-icon:hover {
+            color: #fff; background: rgba(255,255,255,0.15);
+            border-color: var(--primary); 
+            transform: translateY(-8px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        
+        .app-icon.netflix-color:hover {
+            border-color: var(--netflix-red);
+            box-shadow: 0 0 15px rgba(229, 9, 20, 0.4);
+        }
+        .app-icon.netflix-color:hover i { color: var(--netflix-red); text-shadow: 0 0 10px var(--netflix-red); }
+
+        .app-icon.spotify-color:hover {
+            border-color: var(--spotify-green);
+            box-shadow: 0 0 15px rgba(29, 185, 84, 0.4);
+        }
+        .app-icon.spotify-color:hover i { color: var(--spotify-green); text-shadow: 0 0 10px var(--spotify-green); }
+
+        .app-icon:hover .fa-youtube { color: #ff0000; }
+        .app-icon:hover .fa-bilibili { color: #23ade5; }
+        .app-icon:hover .fa-instagram { color: #e1306c; }
+        .app-icon:hover .fa-threads { color: #fff; }
+
+        .app-label {
+            position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+            font-size: 10px; color: var(--primary); opacity: 0; transition: 0.3s;
+            white-space: nowrap; pointer-events: none;
+            background: rgba(0,0,0,0.8); padding: 4px 8px; border-radius: 4px;
+            border: 1px solid var(--primary);
+        }
+        .app-icon:hover .app-label { opacity: 1; top: -45px; }
+
+        /* --- 4. 音樂播放器 (Music) - 優化版 --- */
+        .music-widget {
+            position: absolute; bottom: 8%; right: 8%;
+            display: flex; align-items: flex-end; gap: 15px; z-index: 50;
+        }
+        
+        /* 黑膠設計 */
+        .disc-art {
+            width: 70px; height: 70px; background: #050505;
+            border-radius: 50%; 
+            border: 2px solid #333;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 52;
+            position: relative;
+            background-image: repeating-radial-gradient(#111 0, #111 4px, #222 5px, #222 6px);
+            transition: 0.5s;
+        }
+        .disc-art::after {
+            content: ''; position: absolute; top: -10px; right: -5px;
+            width: 20px; height: 40px;
+            border-right: 2px solid #666; border-top: 2px solid #666;
+            transform: rotate(20deg); transform-origin: top right;
+            transition: 0.5s; opacity: 0.5;
+        }
+        
+        .disc-art.playing { 
+            border-color: var(--primary); 
+            box-shadow: 0 0 25px var(--glow-color); 
+            /* 旋轉動畫 */
+            animation: spin 5s linear infinite; 
+        }
+        .disc-art.playing::after { transform: rotate(45deg); opacity: 1; border-color: var(--primary); }
+        
+        body.combat-mode .disc-art.playing {
+            border-color: var(--danger);
+            box-shadow: 0 0 20px var(--danger);
+        }
+        .disc-inner {
+            width: 35%; height: 35%; border-radius: 50%;
+            background: var(--primary);
+            border: 2px solid #000;
+        }
+        body.combat-mode .disc-inner { background: var(--danger); }
+        
+        /* Spotify 容器 - 順暢動畫修復版 */
+        .spotify-hidden-container {
+            position: absolute; bottom: 90px; right: 0;
+            width: 320px; 
+            height: 400px; /* 固定高度，避免 height 動畫卡頓 */
+            
+            /* 隱藏狀態 */
+            opacity: 0; 
+            pointer-events: none; 
+            transform: translateY(20px) scale(0.9);
+            transform-origin: bottom right;
+
+            /* 高效過渡 */
+            transition: 
+                opacity 0.4s ease, 
+                transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); /* 彈性效果 */
+            
+            z-index: 51;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            background: rgba(10, 10, 10, 0.85); /* 半透明背景 */
+            backdrop-filter: blur(12px); /* 毛玻璃 */
+            -webkit-backdrop-filter: blur(12px);
+            
+            border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column;
+        }
+        .spotify-hidden-container.active { 
+            opacity: 1; 
+            pointer-events: all; 
+            transform: translateY(0) scale(1); 
+        }
+        
+        .spotify-search-bar {
+            width: 100%; padding: 15px;
+            background: rgba(255,255,255,0.05); 
+            border: none; border-bottom: 1px solid #333;
+            color: var(--primary); font-size: 13px; text-align: center;
+            outline: none; box-sizing: border-box;
+            font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
+        }
+        .spotify-search-bar:focus { border-bottom-color: var(--primary); background: rgba(255,255,255,0.1); }
+        .spotify-search-bar::placeholder { color: #555; }
+
+        /* --- 5. 任務日誌 & 裝飾文字 --- */
+        .decor-vertical {
+            position: fixed; top: 15%; right: 6%;
+            writing-mode: vertical-rl; text-orientation: upright;
+            color: rgba(255,255,255,0.2);
+            font-family: 'Shippori Mincho', serif;
+            font-size: 14px; letter-spacing: 10px;
+            z-index: 5; pointer-events: none;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            padding-right: 15px;
+        }
+        body.combat-mode .decor-vertical { color: rgba(255, 42, 42, 0.4); border-right-color: var(--danger); }
+
+        .log-panel {
+            position: fixed; top: 10%; right: 12%; width: 300px;
+            background: rgba(5,5,5,0.9); border: 1px solid #333; border-top: 2px solid var(--accent);
+            padding: 20px; transform: translateX(50px); opacity: 0; pointer-events: none;
+            transition: 0.4s; z-index: 20;
+        }
+        .log-panel.active { transform: translateX(0); opacity: 1; pointer-events: all; }
+        .log-textarea {
+            width: 100%; height: 150px; background: #111; border: 1px solid #333;
+            color: #ccc; padding: 10px; font-family: 'Noto Sans JP'; resize: none; outline: none; box-sizing: border-box;
+        }
+        .log-trigger {
+            position: fixed; top: 10%; right: 0;
+            writing-mode: vertical-rl; text-orientation: upright;
+            background: var(--dark); border: 1px solid #333; border-right: none;
+            padding: 15px 5px; cursor: pointer; color: #888;
+            font-size: 12px; letter-spacing: 3px; transition: 0.3s; z-index: 21;
+        }
+        .log-trigger:hover { color: var(--accent); background: #111; }
+
+        /* --- 6. 開機動畫 --- */
+        #boot-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 1s;
+        }
+        .ignite-btn {
+            margin-top: 50px; border: 1px solid var(--primary); padding: 15px 40px;
+            color: var(--primary); font-weight: 700; letter-spacing: 3px; cursor: pointer;
+            background: rgba(0,0,0,0.5); transition: 0.3s;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        }
+        .ignite-btn:hover { background: var(--primary); color: #000; box-shadow: 0 0 20px var(--primary); }
+
+        /* 動畫 Keyframes */
+        @keyframes spin { 
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); } 
+        }
+        @keyframes flashRed {
+            0% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0); }
+            50% { box-shadow: inset 0 0 100px 0 rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+        .red-alert { animation: flashRed 0.5s ease-out; }
+        .warning-strip {
+            position: fixed; top: 0; width: 100%; height: 5px;
+            background: repeating-linear-gradient(45deg, var(--danger), var(--danger) 20px, #000 20px, #000 40px);
+            z-index: 100; opacity: 0; transition: 0.5s;
+        }
+        body.combat-mode .warning-strip { opacity: 1; }
+
+        /* --- 特效：CRT 掃描線 --- */
+.scanlines {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    /* 創造橫條紋 */
+    background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0,0,0,0.2) 50%,
+        rgba(0,0,0,0.2)
+    );
+    background-size: 100% 4px; /* 線條粗細 */
+    z-index: 900; /* 蓋在背景上，但在按鈕下 */
+    pointer-events: none; /* 滑鼠穿透 */
+    opacity: 0.7;
+}
+
+        /* --- 特效：點擊衝擊波 --- */
+.shockwave {
+    position: absolute;
+    width: 20px; height: 20px;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    pointer-events: none; /* 讓滑鼠可以穿透它 */
+    z-index: 9999;
+    animation: ripple 0.6s ease-out forwards;
+}
+
+@keyframes ripple {
+    0% { transform: scale(1); opacity: 1; border-width: 4px; }
+    100% { transform: scale(15); opacity: 0; border-width: 0px; }
+}
+
+/* 戰鬥模式下的衝擊波變紅色 */
+body.combat-mode .shockwave {
+    border-color: var(--danger);
+    box-shadow: 0 0 10px var(--danger);
+}
+/* --- 補上唱片旋轉動畫 --- */
+@keyframes spin { 
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); } 
+}
+
+/* 確保 .playing 類別有吃到動畫 */
+.disc-art.playing { 
+    animation: spin 5s linear infinite; 
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--glow-color);
+}
+
+/* --- 新增：爆炸閃光層 --- */
+#flash-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9999;
+    transition: opacity 0.1s ease-out;
+}
+
+/* --- 新增：更劇烈的震動 --- */
+@keyframes violent-shake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(-10px, 10px) rotate(-1deg); }
+    50% { transform: translate(10px, -10px) rotate(1deg); }
+    75% { transform: translate(-10px, -10px) rotate(-1deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.violent-shake {
+    animation: violent-shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+    animation-iteration-count: 3; /* 震動 3 次 */
+}
+/* 加入這些新的 CSS */
+.clock-huge span {
+    display: inline-block;
+    text-align: center;
+}
+
+/* 這是數字的部分，設定固定寬度可以防止跳動 */
+#clock-h, #clock-m, #clock-s {
+    width: 1.2em; /* 根據字體大小調整，確保數字有足夠空間 */
+    font-variant-numeric: tabular-nums; /* 強制等寬數字 */
+}
+
+/* 這是冒號的部分，讓它稍微窄一點 */
+.colon {
+    width: 0.3em;
+    position: relative;
+    top: -5px; /* 微調冒號的上下位置 */
+}
+/* 1. 針對整個時鐘：使用負的字距來收緊整體 */
+.clock-huge {
+    /* 負數越大，字與字之間越緊，你可以試試 -0.05em 到 -0.1em */
+    letter-spacing: -0.08em; 
+}
+
+/* 2. 針對數字區塊：把原本預留的寬度改窄 */
+#clock-h, #clock-m, #clock-s {
+    display: inline-block;
+    text-align: center;
+    
+    /* 這裡原本可能是 1.2em，我們把它改窄 */
+    /* "ch" 是以 '0' 的寬度為單位的，1.7ch 大約是兩個數字緊貼的寬度 */
+    width: 1.65ch; 
+}
+/* --- 1. 俄語解碼與打字機特效 --- */
+.typing-cursor::after {
+    content: '▋';
+    display: inline-block;
+    color: var(--primary);
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* --- 2. 點擊爆炸特效 (Bomb Girl Effect) --- */
+.explosion-particle {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #ff00de 40%, transparent 100%);
+    transform: translate(-50%, -50%);
+    animation: explode 0.6s ease-out forwards;
+    z-index: 9999;
+}
+
+@keyframes explode {
+    0% { width: 10px; height: 10px; opacity: 1; }
+    100% { width: 150px; height: 150px; opacity: 0; }
+}
+
+/* 讓語錄文字有點擊手感 */
+#reze-status-text {
+    cursor: pointer;
+    transition: text-shadow 0.3s;
+}
+#reze-status-text:hover {
+    text-shadow: 0 0 10px var(--primary);
+}
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="grid-overlay"></div>
+    <div class="vignette"></div>
+    <div class="warning-strip"></div>
+    
+    <div class="combat-overlay">
+        <div class="crosshair-lines"></div>
+    </div>
+
+    <canvas id="fx-canvas"></canvas>
+
+    <div id="boot-screen">
+        <div class="boot-text" style="font-family:'Shippori Mincho'; color:var(--primary); font-size:2rem; letter-spacing:0.5em; border-bottom:1px solid var(--danger); padding-bottom:10px; margin-bottom:20px;">爆弾の悪魔</div>
+        <div class="boot-sub" style="font-family:'Rajdhani'; color:#555;">SYSTEM: BOMB-DEVIL-V42 // REFINED</div>
+        <div class="ignite-btn" id="start-btn">接続開始</div>
+    </div>
+
+<video id="bg-video" autoplay loop muted playsinline>
+    <source src="video.mp4" type="video/mp4">
+</video>
+
+    <div class="hud-container">
+                <div class="greeting-jp glitch-hover" id="greeting">...</div>
+        <div class="clock-huge">
+    <span id="clock-h">00</span><span class="colon">:</span><span id="clock-m">00</span><span class="colon">:</span><span id="clock-s">00</span>
+</div>
+        <div class="date-jp" id="date">--月--日</div>
+        <div class="reze-status-box">
+            <i class="fa-solid fa-terminal"></i>
+            <span id="reze-status-text" class="fade-text">System Standby...</span>
+        </div>
+
+        <div class="pin-system" title="安全栓 (Safety Pin)">
+            <div class="choker-pin" id="safety-pin">
+                <i class="fa-solid fa-link"></i>
+            </div>
+            <div class="status-group">
+                <span class="status-label">SYSTEM STATUS</span>
+                <span class="status-main glitch-hover" id="status-text">通常モード</span>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="g-search-input" class="search-input" placeholder="Google 検索...">
+            <i class="fa-solid fa-magnifying-glass search-icon" id="g-search-icon"></i>
+        </div>
+    </div>
+
+    <div class="decor-vertical">
+        ソ連の戦士<br>
+        爆弾のハイブリッド<br>
+        花と火薬
+    </div>
+
+<div class="log-trigger" id="log-btn">任務記録</div>
+    <div class="log-panel" id="logPanel">
+        <div class="log-title" style="color:var(--accent); display:flex; justify-content:space-between; margin-bottom:10px;">
+            <span>MISSION LOG</span>
+<i class="fa-solid fa-floppy-disk" style="cursor:pointer" id="save-log-btn"></i>
+        </div>
+        <textarea class="log-textarea" id="logInput" placeholder="機密情報を入力..."></textarea>
+    </div>
+
+    <div class="app-bar">
+        <a href="https://ani.gamer.com.tw" target="_blank" class="app-icon" title="動漫瘋">
+            <i class="fa-solid fa-play"></i>
+            <span class="app-label">Anime</span>
+        </a>
+        <a href="https://www.youtube.com" target="_blank" class="app-icon" title="YouTube">
+            <i class="fa-brands fa-youtube"></i>
+            <span class="app-label">YouTube</span>
+        </a>
+        
+        <a href="https://www.netflix.com" target="_blank" class="app-icon netflix-color" title="Netflix">
+            <i class="fa-solid fa-n"></i> 
+            <span class="app-label" style="border-color: #E50914; color: #E50914;">Netflix</span>
+        </a>
+
+        <a href="https://www.instagram.com" target="_blank" class="app-icon" title="Instagram">
+            <i class="fa-brands fa-instagram"></i>
+            <span class="app-label">Instagram</span>
+        </a>
+        <a href="https://www.threads.net" target="_blank" class="app-icon" title="Threads">
+            <i class="fa-brands fa-threads"></i>
+            <span class="app-label">Threads</span>
+        </a>
+        <a href="https://www.bilibili.com" target="_blank" class="app-icon" title="Bilibili">
+            <i class="fa-brands fa-bilibili"></i>
+            <span class="app-label">Bilibili</span>
+        </a>
+        
+        <div class="app-icon spotify-color" id="music-btn" title="Music Player">
+            <i class="fa-brands fa-spotify"></i>
+            <span class="app-label" style="border-color: var(--spotify-green); color: var(--spotify-green);">Music</span>
+        </div>
+    </div>
+
+    <div class="music-widget">
+        <div id="spotify-container" class="spotify-hidden-container">
+            <input type="text" id="spotify-input" class="spotify-search-bar" 
+                   placeholder="Spotify Song/Playlist Link...">
+            
+            <iframe id="spotify-frame" style="border-radius:0 0 12px 12px; flex-grow:1;" 
+                src="" 
+                width="100%" height="100%" 
+                frameBorder="0" 
+                allowfullscreen="" 
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                loading="lazy">
+            </iframe>
+        </div>
+
+        <div class="disc-art" id="disc">
+            <div class="disc-inner"></div>
+        </div>
+    </div>
+
+<script src="script.js"></script>
+
+</body> 
+
+</html>
+
+
