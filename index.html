@@ -155,6 +155,7 @@
             text-shadow: 0 0 20px rgba(0,0,0,0.5);
             margin-left: -5px;
             transition: color 0.3s;
+            font-variant-numeric: tabular-nums;
         }
         .clock-huge:hover { color: var(--primary); }
 
@@ -521,11 +522,43 @@ body.combat-mode .shockwave {
     animation: violent-shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
     animation-iteration-count: 3; /* 震動 3 次 */
 }
+/* 加入這些新的 CSS */
+.clock-huge span {
+    display: inline-block;
+    text-align: center;
+}
+
+/* 這是數字的部分，設定固定寬度可以防止跳動 */
+#clock-h, #clock-m, #clock-s {
+    width: 1.2em; /* 根據字體大小調整，確保數字有足夠空間 */
+    font-variant-numeric: tabular-nums; /* 強制等寬數字 */
+}
+
+/* 這是冒號的部分，讓它稍微窄一點 */
+.colon {
+    width: 0.3em;
+    position: relative;
+    top: -5px; /* 微調冒號的上下位置 */
+}
+/* 1. 針對整個時鐘：使用負的字距來收緊整體 */
+.clock-huge {
+    /* 負數越大，字與字之間越緊，你可以試試 -0.05em 到 -0.1em */
+    letter-spacing: -0.08em; 
+}
+
+/* 2. 針對數字區塊：把原本預留的寬度改窄 */
+#clock-h, #clock-m, #clock-s {
+    display: inline-block;
+    text-align: center;
+    
+    /* 這裡原本可能是 1.2em，我們把它改窄 */
+    /* "ch" 是以 '0' 的寬度為單位的，1.7ch 大約是兩個數字緊貼的寬度 */
+    width: 1.65ch; 
+}
     </style>
 </head>
 <body>
 
-    <div id="flash-overlay"></div>
     <div class="scanlines"></div>
     <div class="grid-overlay"></div>
     <div class="vignette"></div>
@@ -548,10 +581,11 @@ body.combat-mode .shockwave {
 </video>
 
     <div class="hud-container">
-        <div class="greeting-jp glitch-hover" id="greeting">...</div>
-        <div class="clock-huge" id="clock">00:00</div>
+                <div class="greeting-jp glitch-hover" id="greeting">...</div>
+        <div class="clock-huge">
+    <span id="clock-h">00</span><span class="colon">:</span><span id="clock-m">00</span><span class="colon">:</span><span id="clock-s">00</span>
+</div>
         <div class="date-jp" id="date">--月--日</div>
-        
         <div class="reze-status-box">
             <i class="fa-solid fa-terminal"></i>
             <span id="reze-status-text" class="fade-text">System Standby...</span>
@@ -642,8 +676,10 @@ body.combat-mode .shockwave {
         </div>
     </div>
 
-<script src="script.js"></script> 
-</body>
+<script src="script.js"></script>
+
+</body> 
 
 </html>
+
 
