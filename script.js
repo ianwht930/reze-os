@@ -419,3 +419,180 @@ function animateParticles() {
     }
     requestAnimationFrame(animateParticles);
 }
+function updateClock() {
+    const now = new Date();
+    
+    // 1. 獲取時間數字
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    // 2. 獲取日期與星期
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    const weekDay = days[now.getDay()];
+
+    // 3. 更新 HTML 內容 (針對拆開後的 ID)
+    const hEl = document.getElementById('clock-h');
+    const mEl = document.getElementById('clock-m');
+    const sEl = document.getElementById('clock-s');
+
+    // ★ 只有數字變動時才更新 (防止閃爍的關鍵)
+    if (hEl && hEl.innerText !== hours) hEl.innerText = hours;
+    if (mEl && mEl.innerText !== minutes) mEl.innerText = minutes;
+    if (sEl && sEl.innerText !== seconds) sEl.innerText = seconds;
+
+    // 更新日期
+    const dateEl = document.getElementById('date');
+    if (dateEl) {
+        const dateStr = `${month}月${day}日 (${weekDay})`;
+        if (dateEl.innerText !== dateStr) dateEl.innerText = dateStr;
+    }
+}
+
+// 記得確保這一行有在函數外面，讓時鐘啟動
+setInterval(updateClock, 1000);
+updateClock(); // 頁面載入時先執行一次
+// --- Reze OS 核心語錄庫 ---
+const rezeData = [
+    // === 普通模式 (Normal) ===
+    { ja: "田舎のネズミが好き...", ru: "Я люблю деревенских мышей...", mode: "normal", time: "any" },
+    { ja: "君、学校は楽しい？", ru: "Тебе нравится школа?", mode: "normal", time: "day" },
+    { ja: "コーヒー、淹れようか。", ru: "Сделать тебе кофе?", mode: "normal", time: "morning" },
+    { ja: "このカフェ、教えたくなかったな。", ru: "Не хотела показывать это кафе.", mode: "normal", time: "any" },
+    { ja: "私と...逃げない？", ru: "Не хочешь сбежать со мной?", mode: "normal", time: "any" },
+    { ja: "魔法...見る？", ru: "Хочешь увидеть магию?", mode: "normal", time: "night" },
+    { ja: "まだ起きてるの？", ru: "Всё ещё не спишь?", mode: "normal", time: "night" },
+    { ja: "任務がない日は退屈だね。", ru: "Скучно без заданий.", mode: "normal", time: "day" },
+    { ja: "君の匂い、覚えたよ。", ru: "Я запомнила твой запах.", mode: "normal", time: "any" },
+    { ja: "ジェーンはどこ...", ru: "Где Джейн...", mode: "normal", time: "any" },
+
+    // === 戰鬥模式 (Combat) ===
+    { ja: "Boom!", ru: "Бум!", mode: "combat", time: "any" },
+    { ja: "君の心臓をもらう。", ru: "Я заберу твое сердце.", mode: "combat", time: "any" },
+    { ja: "全員、殺すね。", ru: "Я убью их всех.", mode: "combat", time: "any" },
+    { ja: "Safety pin: RELEASED", ru: "Чека: СНЯТА", mode: "combat", time: "any" },
+    { ja: "ターゲット：排除開始。", ru: "Цель: Начало устранения.", mode: "combat", time: "any" },
+    { ja: "逃がさないよ。", ru: "Не уйдешь.", mode: "combat", time: "any" },
+    { ja: "花火、綺麗だったね。", ru: "Фейерверк был красивым.", mode: "combat", time: "any" },
+    { ja: "デンジ君...", ru: "Денджи...", mode: "combat", time: "any" },
+    { ja: "死ぬまで殺し合おう？", ru: "Давай убивать друг друга до смерти?", mode: "combat", time: "night" },
+    { ja: "ボンッ！", ru: "Взрыв!", mode: "combat", time: "any" }
+];
+
+// 點擊語錄時的反應
+const touchReactions = [
+    "触らないで。", // 別碰
+    "くすぐったいよ。", // 好癢
+    "爆発するよ？", // 會爆炸喔？
+    "......"
+];
+let isTyping = false; // 防止重複觸發
+
+// 主函數：更新狀態文字
+function updateRezeStatus() {
+    if (isTyping) return; // 如果正在打字，不要打斷
+
+    const el = document.getElementById('reze-status-text');
+    if (!el) return;
+
+    // 1. 根據時間和模式篩選語錄
+    const currentHour = new Date().getHours();
+    const isNight = currentHour >= 22 || currentHour <= 5;
+    const isMorning = currentHour >= 6 && currentHour <= 10;
+    
+    // 篩選符合當下情境的語錄
+    const availableQuotes = rezeData.filter(q => {
+        // 先對模式 (Normal/Combat)
+        const modeMatch = combatMode ? (q.mode === "combat") : (q.mode === "normal");
+        if (!modeMatch) return false;
+
+        // 再對時間 (Time)
+        if (q.time === "any") return true;
+        if (q.time === "night" && isNight) return true;
+        if (q.time === "morning" && isMorning) return true;
+        if (q.time === "day" && !isNight && !isMorning) return true;
+        return false;
+    });
+
+    // 隨機選一句
+    const data = availableQuotes[Math.floor(Math.random() * availableQuotes.length)];
+    if (!data) return;
+
+    // 執行「間諜解碼」特效
+    playSpyDecodeEffect(el, data.ru, data.ja);
+}
+
+// 特效核心：先打俄語 -> 停頓 -> 變日語
+function playSpyDecodeEffect(element, russianText, japaneseText) {
+    isTyping = true;
+    element.innerHTML = "";
+    element.classList.add('typing-cursor');
+    element.style.color = combatMode ? "var(--danger)" : "var(--primary)"; // 俄語時的顏色
+
+    let i = 0;
+    // 階段一：打出俄語
+    function typeRussian() {
+        if (i < russianText.length) {
+            element.innerText += russianText.charAt(i);
+            i++;
+            setTimeout(typeRussian, 50); // 打字速度
+        } else {
+            // 俄語打完，停留 0.8 秒
+            setTimeout(() => {
+                // 階段二：解碼成日語
+                element.style.color = combatMode ? "var(--danger)" : "#fff"; // 變回白色/紅色
+                typeJapanese(japaneseText); 
+            }, 800);
+        }
+    }
+
+    // 階段三：日語覆蓋
+    function typeJapanese(text) {
+        element.innerText = text; // 直接顯示日語 (或者你要逐字打也可以)
+        // 這裡做一個簡單的閃爍效果代表解碼完成
+        element.style.opacity = 0;
+        setTimeout(() => element.style.opacity = 1, 100);
+        setTimeout(() => {
+            isTyping = false;
+            element.classList.remove('typing-cursor');
+        }, 200);
+    }
+
+    typeRussian();
+}
+
+// --- 爆炸特效監聽 ---
+document.addEventListener('click', (e) => {
+    // 只有在戰鬥模式點擊背景才爆炸
+    if (typeof combatMode !== 'undefined' && combatMode) {
+        createExplosion(e.clientX, e.clientY);
+    }
+});
+
+// 點擊文字的互動彩蛋
+document.getElementById('reze-status-text').addEventListener('click', (e) => {
+    e.stopPropagation(); // 防止觸發背景爆炸
+    const el = document.getElementById('reze-status-text');
+    const reaction = touchReactions[Math.floor(Math.random() * touchReactions.length)];
+    el.innerText = reaction;
+});
+
+function createExplosion(x, y) {
+    const explosion = document.createElement('div');
+    explosion.classList.add('explosion-particle');
+    explosion.style.left = `${x}px`;
+    explosion.style.top = `${y}px`;
+    document.body.appendChild(explosion);
+
+    // 爆炸音效 (可選，如果你有音檔)
+    // const audio = new Audio('explosion.mp3');
+    // audio.volume = 0.2;
+    // audio.play();
+
+    setTimeout(() => explosion.remove(), 600);
+}
+
+// 啟動循環
+setInterval(updateRezeStatus, 7000); // 每 7 秒換一次話
